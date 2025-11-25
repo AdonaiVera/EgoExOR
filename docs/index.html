@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="description"
+        content="EgoExOR: An Ego-Exo-Centric Operating Room Dataset for Surgical Activity Understanding (NeurIPS 2025)">
+  <meta name="keywords" content="EgoExOR, Surgical Vision, Egocentric, Exocentric, NeurIPS 2025, Scene Graph">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EgoExOR: An Ego-Exo-Centric Operating Room Dataset</title>
+
+  <!-- Google Analytics -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-PYVRSFMDRL"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() { dataLayer.push(arguments); }
+    gtag('js', new Date());
+    gtag('config', 'G-PYVRSFMDRL');
+  </script>
+
+  <!-- Fonts & CSS libs -->
+  <link href="https://fonts.googleapis.com/css?family=Google+Sans|Noto+Sans|Castoro"
+        rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.1/css/bulma.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css">
+
+  <style>
+    body { font-family: 'Noto Sans', sans-serif; }
+    .title { font-family: 'Google Sans', sans-serif; }
+    .publication-title { font-size: 2.5rem; font-weight: 700; margin-bottom: 1rem; }
+    .publication-authors { font-size: 1.1rem; color: #4a4a4a; margin-bottom: 0.75rem; }
+    .publication-venue { font-size: 1.1rem; font-weight: 600; color: #d63031; margin-bottom: 1.2rem; }
+    .button { margin: 5px; }
+    .hero-body { padding: 3rem 1.5rem; }
+    .abstract-box { background-color: #f5f5f5; padding: 2rem; border-radius: 10px; }
+    .section { padding: 3rem 1.5rem; }
+    .bibtex-box { background-color: #f5f5f5; padding: 1.5rem; border-radius: 5px; overflow-x: auto; font-family: monospace; font-size: 0.9rem; }
+    .image-container { text-align: center; margin-bottom: 2rem; }
+    .image-container img { max-width: 100%; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+
+    /* Video container to maintain aspect ratio */
+    .video-container {
+      position: relative;
+      padding-bottom: 56.25%; /* 16:9 */
+      padding-top: 25px;
+      height: 0;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    .video-container iframe {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      border-radius: 8px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+      border: 0;
+    }
+
+    .dataset-box {
+      background-color: #f9fafb;
+      padding: 2rem;
+      border-radius: 10px;
+    }
+
+    .dataset-figure {
+      text-align: center;
+      margin: 1.8rem 0 2.4rem;
+    }
+
+    .dataset-figure img {
+      max-width: 100%;
+      border-radius: 10px;
+      border: 1px solid #ddd;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+    }
+
+    .dataset-figure-caption {
+      font-size: 0.95rem;
+      color: #555;
+      margin-top: 0.6rem;
+    }
+
+
+
+    .author-block sup {
+      font-size: 0.7em;
+    }
+
+    /* COOL MODERN NAVIGATION BAR */
+    .top-nav-wrapper {
+      display: flex;
+      justify-content: center;
+      margin: 1.4rem 0 2rem;
+    }
+
+    .top-nav {
+      display: inline-flex;
+      align-items: center;
+      gap: 1.2rem;
+      padding: 0.55rem 1.4rem;
+      background: rgba(255,255,255,0.75);
+      border: 1px solid rgba(0,0,0,0.08);
+      border-radius: 999px;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 4px 18px rgba(0,0,0,0.08);
+      font-size: 0.95rem;
+    }
+
+    .top-nav a {
+      color: #374151;
+      font-weight: 500;
+      text-decoration: none;
+      padding: 4px 6px;
+      transition: all 0.20s ease;
+    }
+
+    .top-nav a:hover {
+      color: #1d4ed8;
+      text-decoration: underline;
+      transform: translateY(-1px);
+    }
+
+    .top-nav .separator {
+      color: #d1d5db;
+      font-size: 0.9rem;
+      user-select: none;
+    }
+
+    /* Mobile */
+    @media (max-width: 540px) {
+      .top-nav {
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        padding: 0.65rem 1.1rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<!-- HERO / TITLE -->
+<section class="hero">
+  <div class="hero-body">
+    <div class="container is-max-desktop">
+      <div class="columns is-centered">
+        <div class="column has-text-centered">
+          <h1 class="publication-title">
+            EgoExOR: An Ego-Exo-Centric Operating Room Dataset for Surgical Activity Understanding
+          </h1>
+
+          <div class="publication-venue">
+            NeurIPS 2025 · San Diego
+          </div>
+
+<div class="publication-authors">
+  <span class="author-block">
+    <a href="https://scholar.google.com/citations?user=XrQVGwYAAAAJ" target="_blank" rel="noreferrer">
+      Ege Özsoy
+    </a><sup>*1,2</sup>,</span>
+
+    <span class="author-block">
+      <a href="https://scholar.google.com/citations?user=D1EEcKAAAAAJ" target="_blank" rel="noreferrer">
+        Arda Mamur
+      </a><sup>*1</sup>,</span>
+
+    <span class="author-block">
+      <a href="https://scholar.google.com/citations?user=-tv59HYAAAAJ" target="_blank" rel="noreferrer">
+        Felix Tristram
+      </a><sup>1,2</sup>,</span>
+
+    <span class="author-block">
+      <a href="https://scholar.google.com/citations?user=dmkOvGcAAAAJ" target="_blank" rel="noreferrer">
+        Chantal Pellegrini
+      </a><sup>1,2</sup>,</span>
+
+    <span class="author-block">
+      <a href="https://scholar.google.com/citations?user=5A-PRkoAAAAJ" target="_blank" rel="noreferrer">
+        Magdalena Wysocki
+      </a><sup>1,2</sup>,</span>
+
+    <span class="author-block">
+      <a href="https://scholar.google.com/citations?user=u4rJZwUAAAAJ" target="_blank" rel="noreferrer">
+        Benjamin Busam
+      </a><sup>1,2</sup>,</span>
+
+    <span class="author-block">
+      <a href="https://scholar.google.com/citations?user=kzoVUPYAAAAJ" target="_blank" rel="noreferrer">
+        Nassir Navab
+      </a><sup>1,2</sup>,</span>
+  </div>
+
+<div class="is-size-5 publication-authors">
+  <span class="author-block">
+    <sup>1</sup> Technical University of Munich (TUM)
+  </span><br>
+  <span class="author-block">
+    <sup>2</sup> Munich Center for Machine Learning (MCML)
+  </span><br>
+  <span class="author-block" style="font-size: 0.9rem;">
+    * Equal contribution
+  </span>
+</div>
+
+
+
+          <div class="column has-text-centered">
+            <div class="publication-links">
+              <span class="link-block">
+                <a href="https://www.arxiv.org/abs/2505.24287"
+                   class="external-link button is-normal is-rounded is-dark" target="_blank" rel="noreferrer">
+                  <span class="icon">
+                    <i class="ai ai-arxiv"></i>
+                  </span>
+                  <span>arXiv</span>
+                </a>
+              </span>
+              <span class="link-block">
+                <a href="https://github.com/ardamamur/EgoExOR"
+                   class="external-link button is-normal is-rounded is-dark" target="_blank" rel="noreferrer">
+                  <span class="icon">
+                    <i class="fab fa-github"></i>
+                  </span>
+                  <span>Code</span>
+                </a>
+              </span>
+              <span class="link-block">
+                <a href="https://huggingface.co/datasets/ardamamur/EgoExOR"
+                   class="external-link button is-normal is-rounded is-dark" target="_blank" rel="noreferrer">
+                  <span class="icon">
+                    <i class="far fa-images"></i>
+                  </span>
+                  <span>Data (HF)</span>
+                </a>
+              </span>
+              <span class="link-block">
+                <a href="https://huggingface.co/ardamamur/EgoExOR"
+                   class="external-link button is-normal is-rounded is-dark" target="_blank" rel="noreferrer">
+                  <span class="icon">
+                    <i class="fas fa-project-diagram"></i>
+                  </span>
+                  <span>Scene-Graph Model</span>
+                </a>
+              </span>
+              <span class="link-block">
+                <a href="https://neurips.cc/media/PosterPDFs/NeurIPS%202025/121697.png?t=1763461463.2435412"
+                   class="external-link button is-normal is-rounded is-dark" target="_blank" rel="noreferrer">
+                  <span class="icon">
+                    <i class="fas fa-file-pdf"></i>
+                  </span>
+                  <span>Poster</span>
+                </a>
+              </span>
+            </div>
+          </div>
+
+          <div class="top-nav-wrapper">
+            <nav class="top-nav">
+              <a href="#abstract">Abstract</a>
+              <span class="separator">·</span>
+
+              <a href="#video">Video</a>
+              <span class="separator">·</span>
+
+              <a href="#dataset">Dataset</a>
+              <span class="separator">·</span>
+
+              <a href="#BibTeX">BibTeX</a>
+            </nav>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ABSTRACT -->
+<section class="section" id="abstract">
+  <div class="container is-max-desktop">
+    <div class="columns is-centered has-text-centered">
+      <div class="column is-four-fifths">
+        <h2 class="title is-3">Abstract</h2>
+        <div class="content has-text-justified abstract-box">
+          <p>
+            Operating rooms (ORs) demand precise coordination among surgeons, nurses, and equipment in a fast-paced,
+            occlusion-heavy environment, necessitating advanced perception models to enhance safety and efficiency.
+            Existing datasets either provide partial egocentric views or sparse exocentric multi-view context, but
+            do not explore the comprehensive combination of both.
+          </p>
+          <p>
+            We introduce <strong>EgoExOR</strong>, the first OR dataset and accompanying benchmark to fuse first-person
+            and third-person perspectives. Spanning 94 minutes (84,553 frames at 15 FPS) of two emulated spine procedures,
+            Ultrasound-Guided Needle Insertion and Minimally Invasive Spine Surgery, EgoExOR integrates egocentric data
+            (RGB, gaze, hand tracking, audio) from wearable glasses, exocentric RGB and depth from RGB-D cameras, and
+            ultrasound imagery.
+          </p>
+          <p>
+            Its detailed scene graph annotations, covering 36 entities and 22 relations (568,235 triplets), enable robust
+            modeling of clinical interactions, supporting tasks like action recognition and human-centric perception.
+            We evaluate the surgical scene graph generation performance of two adapted state-of-the-art models and offer
+            a new baseline that explicitly leverages EgoExOR's multimodal and multi-perspective signals.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- DEMO VIDEO -->
+<section class="section" id="video">
+  <div class="container is-max-desktop">
+    <div class="columns is-centered has-text-centered">
+      <div class="column is-four-fifths">
+        <h2 class="title is-3">Video</h2>
+        <div class="content has-text-justified">
+        </div>
+        <div class="video-container">
+          <iframe 
+            src="https://drive.google.com/file/d/1IX5ejlCZ2I5VQKj4MNGEgny_86lRqZdT/preview" 
+            allow="autoplay; encrypted-media"
+            style="border: 1px solid #ddd; max-height: 600px;"
+            allowfullscreen>
+          </iframe>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+
+
+<!-- DATASET OVERVIEW -->
+<section class="section" id="dataset">
+  <div class="container is-max-desktop">
+    <div class="columns is-centered has-text-centered">
+      <div class="column is-four-fifths">
+        <h2 class="title is-3">Dataset Overview</h2>
+        <!-- DATASET FIGURE -->
+
+        <div class="content has-text-justified dataset-box">
+          <p>
+            The <strong>EgoExOR</strong> dataset provides a unified multimodal view of the operating room,
+            combining synchronized first-person and third-person recordings with structured annotations.
+            The dataset is built to support research on surgical scene graph generation, action reasoning,
+            and human-centric OR perception.
+          </p>
+
+          <ul>
+            <li><strong>Recording Sessions:</strong> 41 takes (~94 minutes) from two emulated spine procedures,
+              captured at 15 FPS with precise ego–exo synchronization.</li>
+
+            <li><strong>Egocentric Modalities:</strong> POV RGB video, 2D/3D gaze, hand tracking,
+              and onboard audio recorded using Meta ARIA glasses.</li>
+
+            <li><strong>Exocentric Modalities:</strong> Multi-view RGB-D room cameras, overhead viewpoints,
+              and monitor-captured ultrasound video.</li>
+
+            <li><strong>Spatial Signals:</strong> Time-aligned 3D point clouds (from depth + reconstructed geometry).</li>
+
+            <li><strong>Scene Graphs:</strong> Dense per-frame annotations describing entities
+              (staff, tools, anatomy, equipment) and their interactions, provided as triplets with
+              standardized vocabularies.</li>
+
+            <li><strong>Structure &amp; Format:</strong> Released on Hugging Face in a consistent multimodal layout
+              with per-take folders containing frames, metadata, scene graphs, and calibration.
+              A lightweight Python loader is provided in the
+              <a href="https://github.com/ardamamur/EgoExOR" target="_blank" rel="noreferrer">GitHub repository</a>.</li>
+
+            <li><strong>Benchmark Splits:</strong> Predefined train/validation/test splits and reproducible
+              evaluation scripts for Surgical Scene Graph Generation (SSGG).</li>
+          </ul>
+
+          <p>
+            This structure makes EgoExOR a compact, easy-to-use resource for developing models
+            that connect perception, interaction, and workflow understanding in surgical environments.
+          </p>
+        </div>
+
+        <div class="dataset-figure">
+          <img src="figures/dataset_overview.png" alt="EgoExOR dataset overview">
+          <div class="dataset-figure-caption">
+            Figure: Overview of EgoExOR’s multimodal ego–exo setup, including ARIA egocentric data,
+            room-view RGB-D cameras, ultrasound feed, and scene graph annotations.
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</section>
+
+
+
+
+<!-- BIBTEX -->
+<section class="section" id="BibTeX">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3">BibTeX</h2>
+    <pre class="bibtex-box"><code>@article{ozsoy2025egoexor,
+  title={EgoExOR: An Ego-Exo-Centric Operating Room Dataset for Surgical Activity Understanding},
+  author={{\"O}zsoy, Ege and Mamur, Arda and Tristram, Felix and Pellegrini, Chantal and Wysocki, Magdalena and Busam, Benjamin and Navab, Nassir},
+  journal={arXiv preprint arXiv:2505.24287},
+  year={2025}
+}</code></pre>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer class="footer">
+  <div class="container">
+    <div class="content has-text-centered">
+      <p>
+        <a href="https://github.com/ardamamur/EgoExOR" class="icon-link" target="_blank" rel="noreferrer">
+          <i class="fab fa-github"></i>
+        </a>
+      </p>
+    </div>
+    <div class="content has-text-centered">
+      <p>
+        Website template borrowed from <a href="https://github.com/nerfies/nerfies.github.io" target="_blank" rel="noreferrer">Nerfies</a>.
+      </p>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
