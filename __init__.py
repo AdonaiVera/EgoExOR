@@ -44,6 +44,39 @@ AVAILABLE_H5_FILES = [
 DEFAULT_H5_FILE = "miss_4.h5"
 
 
+def _load_metadata(f: h5py.File) -> Dict[str, Any]:
+    """Load dataset metadata from h5 file."""
+    metadata = {}
+
+    if "metadata/dataset" in f:
+        ds_grp = f["metadata/dataset"]
+        metadata["dataset_info"] = {
+            "version": _decode(ds_grp.attrs.get("version", "unknown")),
+            "creation_date": _decode(ds_grp.attrs.get("creation_date", "unknown")),
+            "title": _decode(ds_grp.attrs.get("title", "EgoExOR")),
+        }
+
+    if "metadata/vocabulary/entity" in f:
+        entities = f["metadata/vocabulary/entity"][:]
+        metadata["entity_vocabulary"] = {
+            int(e["id"]): _decode(e["name"]) for e in entities
+        }
+
+    if "metadata/vocabulary/relation" in f:
+        relations = f["metadata/vocabulary/relation"][:]
+        metadata["relation_vocabulary"] = {
+            int(r["id"]): _decode(r["name"]) for r in relations
+        }
+
+    if "metadata/sources/sources" in f:
+        sources = f["metadata/sources/sources"][:]
+        metadata["sources"] = {
+            int(s["id"]): _decode(s["name"]) for s in sources
+        }
+
+    return metadata
+
+
 def download_and_prepare(
     dataset_dir: str,
     split: Optional[str] = None,
@@ -106,16 +139,52 @@ def load_dataset(
 
     _setup_group_slices(dataset)
 
+    # Load and store metadata from first h5 file
+    metadata = {}
+    if h5_paths:
+        with h5py.File(h5_paths[0], "r") as f:
+            metadata = _load_metadata(f)
+
+    if metadata:
+        _store_dataset_metadata(dataset, metadata)
+
     sample_count = 0
     for h5_file_path in h5_paths:
         if max_samples and sample_count >= max_samples:
             break
 
         remaining = max_samples - sample_count if max_samples else None
-        loaded = _load_from_h5(dataset, h5_file_path, dataset_dir, remaining, split)
+        loaded = _load_from_h5(dataset, h5_file_path, dataset_dir, remaining, split, metadata)
         sample_count += loaded
 
     return dataset
+
+
+def _store_dataset_metadata(dataset: fo.Dataset, metadata: Dict[str, Any]):
+    """Store metadata as dataset-level info."""
+    if "dataset_info" in metadata:
+        dataset.info["version"] = metadata["dataset_info"]["version"]
+        dataset.info["creation_date"] = metadata["dataset_info"]["creation_date"]
+        dataset.info["title"] = metadata["dataset_info"]["title"]
+
+    if "entity_vocabulary" in metadata:
+        dataset.info["entity_classes"] = list(metadata["entity_vocabulary"].values())
+        dataset.info["entity_id_to_name"] = {
+            str(k): v for k, v in metadata["entity_vocabulary"].items()
+        }
+
+    if "relation_vocabulary" in metadata:
+        dataset.info["relation_classes"] = list(metadata["relation_vocabulary"].values())
+        dataset.info["relation_id_to_name"] = {
+            str(k): v for k, v in metadata["relation_vocabulary"].items()
+        }
+
+    if "sources" in metadata:
+        dataset.info["camera_sources"] = {
+            str(k): v for k, v in metadata["sources"].items()
+        }
+
+    dataset.save()
 
 
 def _resolve_h5_paths(dataset_dir: str, h5_path: Optional[str],
@@ -225,7 +294,8 @@ def _setup_group_slices(dataset: fo.Dataset):
 
 
 def _load_from_h5(dataset: fo.Dataset, h5_path: str, dataset_dir: str,
-                  max_samples: Optional[int], split: Optional[str] = None) -> int:
+                  max_samples: Optional[int], split: Optional[str] = None,
+                  metadata: Optional[Dict[str, Any]] = None) -> int:
     """Load samples from a single h5 file."""
     samples_to_add = []
     sample_count = 0
@@ -255,7 +325,8 @@ def _load_from_h5(dataset: fo.Dataset, h5_path: str, dataset_dir: str,
                     take_samples, count = _load_take(
                         f, take_path, surgery_type, procedure_id, take_id,
                         dataset_dir, split_frames,
-                        max_samples - sample_count if max_samples else None
+                        max_samples - sample_count if max_samples else None,
+                        metadata
                     )
                     samples_to_add.extend(take_samples)
                     sample_count += count
@@ -269,7 +340,8 @@ def _load_from_h5(dataset: fo.Dataset, h5_path: str, dataset_dir: str,
 def _load_take(f: h5py.File, take_path: str, surgery_type: str,
                procedure_id: str, take_id: str, dataset_dir: str,
                split_frames: Optional[set],
-               max_frames: Optional[int]) -> Tuple[List[fo.Sample], int]:
+               max_frames: Optional[int],
+               metadata: Optional[Dict[str, Any]] = None) -> Tuple[List[fo.Sample], int]:
     """Load frames from a single take."""
     samples = []
     loaded_count = 0
@@ -298,7 +370,7 @@ def _load_take(f: h5py.File, take_path: str, surgery_type: str,
             break
 
         group = fo.Group()
-        annotations = _get_frame_annotations(f, take_path, frame_idx)
+        text_annotations, tokenized_annotations = _get_frame_annotations(f, take_path, frame_idx, metadata)
 
         for cam_idx, cam_name in source_map.items():
             frame = rgb_data[frame_idx, cam_idx]
@@ -320,17 +392,28 @@ def _load_take(f: h5py.File, take_path: str, surgery_type: str,
                 _add_egocentric_data(sample, frame_idx, cam_name, frame.shape,
                                      gaze_data, gaze_depth_data, hand_data)
 
-            if annotations:
-                sample["scene_graph"] = annotations
+            if text_annotations:
+                sample["scene_graph"] = text_annotations
+                sample["relations"] = fo.Classifications(
+                    classifications=[
+                        fo.Classification(label=ann) for ann in text_annotations
+                    ]
+                )
+            if tokenized_annotations:
+                sample["scene_graph_tokens"] = tokenized_annotations
             if audio_snippets is not None:
                 sample["has_audio"] = True
+                audio_path = _save_audio_snippet(audio_snippets[frame_idx], frames_dir, frame_idx)
+                if audio_path:
+                    sample["audio_path"] = audio_path
 
             samples.append(sample)
 
         if pc_coords is not None and pc_colors is not None:
             pc_sample = _create_pointcloud_sample(
                 group, pc_coords[frame_idx], pc_colors[frame_idx],
-                frames_dir, frame_idx, surgery_type, procedure_id, take_id, annotations
+                frames_dir, frame_idx, surgery_type, procedure_id, take_id,
+                text_annotations, tokenized_annotations
             )
             samples.append(pc_sample)
 
@@ -377,38 +460,61 @@ def _add_egocentric_data(sample: fo.Sample, frame_idx: int, cam_name: str,
             cam_name, frame_shape
         )
         if gaze_info:
-            sample["gaze"] = fo.Keypoint(points=[gaze_info["point"]])
+            depth_label = f"depth: {gaze_info['depth']:.2f}m" if gaze_info.get("depth") else "gaze"
+            sample["gaze"] = fo.Keypoint(points=[gaze_info["point"]], label=depth_label)
             if gaze_info.get("depth") is not None:
                 sample["gaze_depth"] = float(gaze_info["depth"])
 
     if hand_data is not None:
-        hands = _get_hands_for_camera(hand_data[frame_idx], cam_name, frame_shape)
-        if hands:
-            sample["hand_tracking"] = fo.Keypoints(keypoints=hands)
+        left_hand, right_hand = _get_hands_for_camera(hand_data[frame_idx], cam_name, frame_shape)
+        keypoints = []
+        if left_hand:
+            keypoints.append(fo.Keypoint(points=left_hand, label="left_hand"))
+        if right_hand:
+            keypoints.append(fo.Keypoint(points=right_hand, label="right_hand"))
+        if keypoints:
+            sample["hand_tracking"] = fo.Keypoints(keypoints=keypoints)
 
 
 def _create_pointcloud_sample(group: fo.Group, coords: np.ndarray, colors: np.ndarray,
                                frames_dir: Path, frame_idx: int, surgery_type: str,
                                procedure_id: str, take_id: str,
-                               annotations: Optional[List[str]]) -> fo.Sample:
-    """Create a point cloud sample."""
+                               text_annotations: Optional[List[str]],
+                               tokenized_annotations: Optional[List[List[int]]] = None) -> fo.Sample:
+    """Create a point cloud sample with fo3d scene file."""
     pc_dir = frames_dir / "pointcloud"
     pc_dir.mkdir(parents=True, exist_ok=True)
-    pc_filepath = pc_dir / f"frame_{frame_idx}.ply"
+    ply_filepath = pc_dir / f"frame_{frame_idx}.ply"
+    fo3d_filepath = pc_dir / f"frame_{frame_idx}.fo3d"
 
-    if not pc_filepath.exists():
-        _save_point_cloud_ply(coords, colors, str(pc_filepath))
+    if not ply_filepath.exists():
+        _save_point_cloud_ply(coords, colors, str(ply_filepath))
 
-    sample = fo.Sample(filepath=str(pc_filepath), group=group.element("point_cloud"))
+    if not fo3d_filepath.exists():
+        _create_fo3d_scene(str(ply_filepath), str(fo3d_filepath))
+
+    sample = fo.Sample(filepath=str(fo3d_filepath), group=group.element("point_cloud"))
     sample["surgery_type"] = surgery_type
     sample["procedure_id"] = int(procedure_id)
     sample["take_id"] = int(take_id)
     sample["frame_idx"] = frame_idx
     sample["camera_name"] = "point_cloud"
     sample["is_egocentric"] = False
-    if annotations:
-        sample["scene_graph"] = annotations
+    if text_annotations:
+        sample["scene_graph"] = text_annotations
+    if tokenized_annotations:
+        sample["scene_graph_tokens"] = tokenized_annotations
     return sample
+
+
+def _create_fo3d_scene(ply_path: str, fo3d_path: str):
+    """Create an fo3d scene file for a PLY point cloud."""
+    from fiftyone.core.threed import Scene, PlyMesh
+
+    scene = Scene()
+    ply_mesh = PlyMesh("point_cloud", ply_path, is_point_cloud=True)
+    scene.add(ply_mesh)
+    scene.write(fo3d_path)
 
 
 def _count_samples_in_file(h5_path: str) -> int:
@@ -433,12 +539,26 @@ def _decode(val):
     return val.decode() if isinstance(val, bytes) else val
 
 
-def _get_frame_annotations(f: h5py.File, take_path: str, frame_idx: int) -> Optional[List[str]]:
-    ann_path = f"{take_path}/annotations/frame_{frame_idx}/rel_annotations"
-    if ann_path in f:
-        raw = f[ann_path][:]
-        return [" ".join(_decode(x) for x in row) for row in raw]
-    return None
+def _get_frame_annotations(f: h5py.File, take_path: str, frame_idx: int,
+                           metadata: Optional[Dict[str, Any]] = None
+                           ) -> Tuple[Optional[List[str]], Optional[List[List[int]]]]:
+    """Get frame annotations in both text and tokenized form."""
+    text_annotations = None
+    tokenized_annotations = None
+
+    ann_base = f"{take_path}/annotations/frame_{frame_idx}"
+
+    rel_path = f"{ann_base}/rel_annotations"
+    if rel_path in f:
+        raw = f[rel_path][:]
+        text_annotations = [" ".join(_decode(x) for x in row) for row in raw]
+
+    sg_path = f"{ann_base}/scene_graph"
+    if sg_path in f:
+        raw = f[sg_path][:]
+        tokenized_annotations = [[int(x) for x in row] for row in raw]
+
+    return text_annotations, tokenized_annotations
 
 
 def _get_gaze_for_camera(gaze_points: np.ndarray, gaze_depths: Optional[np.ndarray],
@@ -457,20 +577,62 @@ def _get_gaze_for_camera(gaze_points: np.ndarray, gaze_depths: Optional[np.ndarr
 
 
 def _get_hands_for_camera(hand_points: np.ndarray, cam_name: str,
-                          frame_shape: tuple) -> List[fo.Keypoint]:
-    expected_type = CAMERA_TYPE_MAPPING.get(cam_name)
-    if expected_type is None:
-        return []
+                          frame_shape: tuple) -> Tuple[Optional[List], Optional[List]]:
+    """Extract left and right hand keypoints for a specific camera."""
+    expected_id = CAMERA_TYPE_MAPPING.get(cam_name)
+    if expected_id is None:
+        return None, None
+
     h, w = frame_shape[:2]
-    keypoints = []
-    for hand in hand_points:
-        if hand[0] == expected_type:
-            pts = hand[1:].reshape(8, 2)
-            valid_pts = [(float(pt[0] / w), float(pt[1] / h)) for pt in pts
-                        if not np.isnan(pt[0]) and not np.isnan(pt[1])]
-            if valid_pts:
-                keypoints.append(fo.Keypoint(points=valid_pts))
-    return keypoints
+
+    for slot in hand_points:
+        cam_id = int(slot[0])
+        if cam_id != expected_id:
+            continue
+
+        left_pts = []
+        for i in range(4):
+            x, y = slot[1 + i*2], slot[2 + i*2]
+            if not np.isnan(x) and not np.isnan(y):
+                left_pts.append((float(x / w), float(y / h)))
+
+        right_pts = []
+        for i in range(4):
+            x, y = slot[9 + i*2], slot[10 + i*2]
+            if not np.isnan(x) and not np.isnan(y):
+                right_pts.append((float(x / w), float(y / h)))
+
+        return (left_pts if left_pts else None, right_pts if right_pts else None)
+
+    return None, None
+
+
+def _save_audio_snippet(audio_data: np.ndarray, frames_dir: Path, frame_idx: int,
+                        sample_rate: int = 48000) -> Optional[str]:
+    """Save audio snippet as WAV file."""
+    import wave
+
+    audio_dir = frames_dir / "audio"
+    audio_dir.mkdir(parents=True, exist_ok=True)
+    wav_path = audio_dir / f"frame_{frame_idx}.wav"
+
+    if wav_path.exists():
+        return str(wav_path)
+
+    try:
+        audio_clean = np.nan_to_num(audio_data, nan=0.0, posinf=1.0, neginf=-1.0)
+        audio_clean = np.clip(audio_clean, -1.0, 1.0)
+        audio_int16 = (audio_clean * 32767).astype(np.int16)
+
+        with wave.open(str(wav_path), 'w') as wav_file:
+            wav_file.setnchannels(2)
+            wav_file.setsampwidth(2)
+            wav_file.setframerate(sample_rate)
+            wav_file.writeframes(audio_int16.tobytes())
+
+        return str(wav_path)
+    except Exception:
+        return None
 
 
 def _save_point_cloud_ply(coords: np.ndarray, colors: np.ndarray, filepath: str):
