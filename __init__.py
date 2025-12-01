@@ -586,6 +586,8 @@ def _get_hands_for_camera(hand_points: np.ndarray, cam_name: str,
     h, w = frame_shape[:2]
 
     for slot in hand_points:
+        if np.isnan(slot[0]):
+            continue
         cam_id = int(slot[0])
         if cam_id != expected_id:
             continue

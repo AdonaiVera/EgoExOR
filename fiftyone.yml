@@ -27,7 +27,7 @@ splits:
   - validation
   - test
 size_samples:
-  total: 84553
+  total: 33574
 size_takes:
   train: 26
   validation: 8
