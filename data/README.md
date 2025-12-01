@@ -12,6 +12,9 @@ The EgoExOR dataset provides a comprehensive, multimodal view of simulated surgi
 
 ## 🚀 Quick Start with FiftyOne
 
+[explore_with_fiftyone.webm](https://github.com/user-attachments/assets/3dbdd5be-5fa3-4fbf-a945-f65806bb0136)
+
+
 ```python
 import fiftyone as fo
 import fiftyone.zoo as foz
