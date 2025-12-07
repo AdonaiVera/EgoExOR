@@ -378,7 +378,7 @@ def _load_take(f: h5py.File, take_path: str, surgery_type: str,
 
             if not filepath.exists():
                 import cv2
-                cv2.imwrite(str(filepath), cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
+                cv2.imwrite(str(filepath), frame)
 
             sample = fo.Sample(filepath=str(filepath), group=group.element(cam_name))
             sample["surgery_type"] = surgery_type
